@@ -174,7 +174,28 @@ public:
 	void iterate_trafficlight();
 	void iterate_frame();
 
+	void increase_probability_north()
+	{
+		probability_north = max(probability_north - 1, 1);
+	}
+	void decrease_probability_north()
+	{
+		probability_north++;
+	}
+	void increase_probability_west()
+	{
+		probability_west = max(probability_west - 1, 1);
+
+	}
+	void decrease_probability_west()
+	{
+		probability_west++;
+	}
+
 private:
+
+	int probability_north = FPS;
+	int probability_west = FPS;
 
 	constexpr static POINT top_left = { 0, 0 };
 
@@ -207,8 +228,8 @@ private:
 
 void Intersection::iterate_frame()
 {
-	bool should_make_new_one_top = rand() % 150 == 0;
-	bool should_make_new_one_left = rand() % 150 == 0;
+	bool should_make_new_one_top = rand() % probability_north == 0;
+	bool should_make_new_one_left = rand() % probability_west == 0;
 
 	if (should_make_new_one_top)
 		m_vertical_cars.push_back(std::make_shared<Car<Orientation::VERTICAL>>(Vector2<float>{ (float)( north_road.position().x + rand() % (north_road.size().cx - 20)), (float)north_road.position().y }));
@@ -348,6 +369,20 @@ void Intersection::draw(const HDC context) const
 	south_road.draw(context);
 	north_light.draw(context);
 	west_light.draw(context);
+
+	RECT text = { 0, 50, 400, 100 };
+	RECT text2 = { 0, 100, 400, 150};
+
+	const auto* a = "The probability of north/frame: 1/%d (%.02f %%)";
+	const auto* b = "The probability of west/frame: 1/%d (%.02f %%)";
+	CHAR buf[100]{ 0 };
+	CHAR buf2[100]{ 0 };
+
+	sprintf_s(buf, a, probability_north, 100.0f/probability_north);
+	sprintf_s(buf2, b, probability_west, 100.0f/probability_west);
+
+	DrawTextA(context, buf, strlen(buf), &text, 0);
+	DrawTextA(context, buf2, strlen(buf2), &text2, 0);
 
 	const RECT intersection_rect{ west_road.position().x + west_road.size().cy, north_road.position().y + north_road.size().cy, east_road.position().x, south_road.position().y };
 	

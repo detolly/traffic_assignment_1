@@ -118,19 +118,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
-   HWND hwndButton = CreateWindow(
-       L"BUTTON",  // Predefined class; Unicode assumed 
-       L"Iterate",      // Button text 
-       WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles 
-       10,         // x position 
-       10,         // y position 
-       100,        // Button width
-       100,        // Button height
-       hWnd,     // Parent window
-       (HMENU)10000,       // No menu.
-       (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
-       nullptr);      // Pointer not needed.
-
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -187,6 +174,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             InvalidateRect(hWnd, &invalidate, TRUE);
             break;
         }
+        break;
+    case WM_KEYDOWN:
+        if (wParam == VK_UP)
+            intersection.increase_probability_north();
+        else if (wParam == VK_DOWN)
+            intersection.decrease_probability_north();
+        if (wParam == VK_RIGHT)
+            intersection.increase_probability_west();
+        else if (wParam == VK_LEFT)
+            intersection.decrease_probability_west();
         break;
     case WM_PAINT:
         {
