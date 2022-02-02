@@ -194,8 +194,8 @@ public:
 
 private:
 
-	int probability_north = FPS;
-	int probability_west = FPS;
+	int probability_north = 150;
+	int probability_west = 150;
 
 	constexpr static POINT top_left = { 0, 0 };
 
