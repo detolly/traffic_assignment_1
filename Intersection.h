@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <vector>
+#include <memory>
 
 template<typename T>
 class Vector2
@@ -12,7 +13,7 @@ class Vector2
 public:
 	Vector2(T x, T y) : m_x(x), m_y(y) {}
 	Vector2(const Vector2& other) = default;
-	Vector2(Vector2&& other) = delete;
+	Vector2(Vector2&& other) = default;
 	
 
 public:
@@ -72,16 +73,15 @@ public:
 
 	void update(bool should_drive)
 	{
-
 		auto velocity = 0.0f;
 		auto acceleration = 0.0f;
 		if constexpr (orientation == Orientation::HORIZONTAL) velocity		= m_velocity.x();		else velocity		= m_velocity.y();
 		if constexpr (orientation == Orientation::HORIZONTAL) acceleration	= m_acceleration.x();	else acceleration	= m_acceleration.y();
 
-		if (should_drive && velocity < 500.0f)
-			acceleration = 80.0f;
+		if (should_drive && velocity < 250.0f)
+			acceleration = 500.0f;
 		else if (!should_drive && velocity > 0.0f)
-			acceleration = -280.0f;
+			acceleration = -450.0f;
 		else if (!should_drive && velocity < 0.0f)
 		{
 			velocity = 0;
@@ -129,9 +129,12 @@ public:
 	constexpr void set_position(POINT position) { m_position = position; }
 	constexpr void set_size(SIZE size) { m_size = size; }
 
+	SIZE size() const { return m_size; }
+	POINT position() const { return m_position; }
+
 private:
 	POINT m_position{ 0, 0 };
-	SIZE m_size{ 60, 300 };
+	SIZE m_size{ 120, 400 };
 
 	HBRUSH background_brush;
 	HBRUSH lane_brush;
@@ -173,6 +176,8 @@ public:
 
 private:
 
+	constexpr static POINT top_left = { 0, 0 };
+
 	std::size_t seconds_since_last_switch{ 0 };
 
 	TrafficLightDrawable west_light;
@@ -186,8 +191,8 @@ private:
 	HBRUSH background_brush;
 	constexpr static COLORREF background_color = 0x0040404040;
 
-	std::vector<Car<Orientation::HORIZONTAL>> m_horizontal_cars;
-	std::vector<Car<Orientation::VERTICAL>> m_vertical_cars;
+	std::vector<std::shared_ptr<Car<Orientation::HORIZONTAL>>> m_horizontal_cars;
+	std::vector<std::shared_ptr<Car<Orientation::VERTICAL>>> m_vertical_cars;
 
 	enum class State {
 		WEST_DRIVING_NORTH_STOPPED,
@@ -206,31 +211,49 @@ void Intersection::iterate_frame()
 	bool should_make_new_one_left = rand() % 150 == 0;
 
 	if (should_make_new_one_top)
-		m_vertical_cars.push_back(Car<Orientation::VERTICAL>{ { (float)(500 + rand() % (60 - 30)), float(100) } });
+		m_vertical_cars.push_back(std::make_shared<Car<Orientation::VERTICAL>>(Vector2<float>{ (float)( north_road.position().x + rand() % (north_road.size().cx - 20)), (float)north_road.position().y }));
 	if (should_make_new_one_left)
-		m_horizontal_cars.push_back(Car<Orientation::HORIZONTAL>{ { (float)(200), (float)(400 + rand() % (60 - 30))  } });
+		m_horizontal_cars.push_back(std::make_shared<Car<Orientation::HORIZONTAL>>( Vector2<float>{ (float)west_road.position().x, (float)(west_road.position().y + rand() % (north_road.size().cx - 20)) }));
 
-	std::vector<std::vector<Car<Orientation::HORIZONTAL>>::iterator> h_iterators;
+	std::shared_ptr<Car<Orientation::HORIZONTAL>> previous_horizontal;
+
+	const auto clearing_distance = 120;
+
+	std::vector<std::vector<std::shared_ptr<Car<Orientation::HORIZONTAL>>>::iterator> h_iterators;
 	for (auto iter = m_horizontal_cars.begin(); iter != m_horizontal_cars.end(); iter++) {
-		auto& car = *iter;
-		const bool can_drive = current_state == State::WEST_DRIVING_NORTH_STOPPED || current_state == State::WEST_STARTING_NORTH_STOPPED;
-		bool should_drive = can_drive || car.position().x() < 200 + 200 || car.position().x() > 200 + 230 + 60;
+		auto& car = *iter->get();
+		const bool can_drive = current_state == State::WEST_STARTING_NORTH_STOPPED || current_state == State::WEST_DRIVING_NORTH_STOPPED;
+		bool should_drive;
+		if (previous_horizontal.get() == nullptr)
+			should_drive = can_drive || car.position().x() < west_road.position().x + west_road.size().cy - clearing_distance || car.position().x() > west_road.position().x + west_road.size().cy - 40;
+		else
+			should_drive = (can_drive && car.position().x() < previous_horizontal->position().x() - clearing_distance) || (car.position().x() < previous_horizontal->position().x() - clearing_distance && previous_horizontal->position().x() < west_road.position().x + west_road.size().cy);
 		car.update(should_drive);
-		if (car.position().x() > 200 + 300 + 300)
+		if (car.position().x() > east_road.position().x + east_road.size().cy)
 			h_iterators.push_back(iter);
+		previous_horizontal = *iter;
 	}
+	
 	for(int i = h_iterators.size()-1; i >= 0; i--)
 		m_horizontal_cars.erase(h_iterators[i]);
 
-	std::vector<std::vector<Car<Orientation::VERTICAL>>::iterator> iterators;
+	std::shared_ptr<Car<Orientation::VERTICAL>> previous_vertical;
+
+	std::vector<std::vector<std::shared_ptr<Car<Orientation::VERTICAL>>>::iterator> iterators;
 	for (auto iter = m_vertical_cars.begin(); iter != m_vertical_cars.end(); iter++) {
-		auto& car = *iter;
+		auto& car = *iter->get();
 		const bool can_drive = current_state == State::WEST_STOPPED_NORTH_DRIVING || current_state == State::WEST_STOPPED_NORTH_STARTING;
-		bool should_drive = can_drive || car.position().y() < 300 || car.position().y() > 300+60;
+		bool should_drive;
+		if (previous_vertical.get() == nullptr)
+			should_drive = can_drive || car.position().y() < north_road.position().y + north_road.size().cy - clearing_distance || car.position().y() > north_road.position().y + north_road.size().cy - 40;
+		else
+			should_drive = (can_drive && car.position().y() < previous_vertical->position().y() - clearing_distance) || (car.position().y() < previous_vertical->position().y() - clearing_distance && previous_vertical->position().y() < north_road.position().y + north_road.size().cy);
 		car.update(should_drive);
-		if (car.position().y() > 100 + 300 + 300 + 60)
+		if (car.position().y() > south_road.position().y + south_road.size().cy)
 			iterators.push_back(iter);
+		previous_vertical = *iter;
 	}
+
 	for (int i = iterators.size() - 1; i >= 0; i--)
 		m_vertical_cars.erase(iterators[i]);
 }
@@ -294,24 +317,24 @@ void Intersection::iterate_trafficlight()
 		}
 		break;
 	}
-
-	
 }
 
 Intersection::Intersection()
 {
+	const auto total_height = north_road.size().cy*2+north_road.size().cx;
+
 	west_light.set_size(100);
-	west_light.set_position({ 140, 140 });
+	west_light.set_position({ 180, 180 });
 	west_light.set_state(TrafficLight::State::GREEN);
 
 	north_light.set_size(100);
-	north_light.set_position({ 600, 550 });
+	north_light.set_position({ 700, 650 });
 	north_light.set_state(TrafficLight::State::RED);
 
-	west_road.set_position({ 200, 400 });
-	east_road.set_position({ 200+300+60, 400 });
-	north_road.set_position({ 500, 100 });
-	south_road.set_position({ 500, 460 });
+	west_road.set_position({ top_left.x, top_left.y + (total_height / 2) - (west_road.size().cx/2)});
+	east_road.set_position({ west_road.position().x+west_road.size().cy+north_road.size().cx, west_road.position().y });
+	north_road.set_position({ top_left.x + (total_height / 2) - (west_road.size().cx / 2), top_left.y });
+	south_road.set_position({ north_road.position().x, north_road.position().y+north_road.size().cy+north_road.size().cx });
 
 	background_brush = CreateSolidBrush(background_color);
 
@@ -326,15 +349,15 @@ void Intersection::draw(const HDC context) const
 	north_light.draw(context);
 	west_light.draw(context);
 
-	constexpr static RECT intersection_rect{ 500, 400, 560, 460 };
+	const RECT intersection_rect{ west_road.position().x + west_road.size().cy, north_road.position().y + north_road.size().cy, east_road.position().x, south_road.position().y };
 	
 	FillRect(context, &intersection_rect, background_brush);
 
 	for (const auto& car : m_horizontal_cars) {
-		car.draw(context);
+		car->draw(context);
 	}
 
 	for (const auto& car : m_vertical_cars) {
-		car.draw(context);
+		car->draw(context);
 	}
 }

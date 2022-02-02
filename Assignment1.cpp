@@ -8,7 +8,7 @@
 #define MAX_LOADSTRING 100
 
 
-#define FPS 24
+#define FPS 60
 #define TIMEOUT 1000/FPS
 #define DELTA_TIME 1.0f/FPS
 
