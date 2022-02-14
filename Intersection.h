@@ -69,6 +69,11 @@ public:
 		if constexpr (orientation == Orientation::VERTICAL) m_velocity = { 0.0F, 5.0f };
 	}
 
+	~Car()
+	{
+		DeleteObject(brush);
+	}
+
 	COLORREF color() const { return m_color; }
 
 	void update(bool should_drive)
@@ -122,7 +127,13 @@ class Road {
 public:
 
 	Road();
-	~Road() = default;
+
+	~Road()
+	{
+		DeleteObject(background_brush);
+		DeleteObject(lane_brush);
+	}
+
 
 	void draw(const HDC context) const;
 
@@ -167,7 +178,11 @@ class Intersection
 {
 public:
 	Intersection();
-	~Intersection() = default;
+
+	~Intersection()
+	{
+		DeleteObject(background_brush);
+	}
 
 	void draw(const HDC context) const;
 

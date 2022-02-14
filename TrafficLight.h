@@ -15,7 +15,6 @@ public:
 
 public:
 	TrafficLight() = default;
-	~TrafficLight() = default;
 
 	const State state() const { return m_state; }
 	void set_state(State state) { m_state = state; }
@@ -41,7 +40,10 @@ class TrafficLightDrawable : public TrafficLight
 {
 public:
 	TrafficLightDrawable();
-	~TrafficLightDrawable() = default;
+	~TrafficLightDrawable() {
+		DeleteObject(background_brush);
+		DeleteObject(dark_brush);
+	};
 
 	void draw(const HDC context) const;
 
